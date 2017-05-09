@@ -7,5 +7,5 @@ To run the classifier, just follow these steps:<br />
     - classifier.classify()<br />
 
 The algorithms trains the classifier with 3000 e-mails and, then, classify the rest of the emails of the dataset.
-If a start and end values are passed to the classify method, then the classification is done only with the e-mails
+If a start and end values are feed to the classify method, then the algorithm classifies only  the e-mails
 in the range defined.
