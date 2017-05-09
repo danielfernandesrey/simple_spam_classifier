@@ -32,7 +32,7 @@ class Classifier():
             self.labels = list(zip((*[iter(reversed(file_name_label))]*2)))
             self.labels = dict(self.labels)
 
-    def get_model(self):
+    def train(self):
 
         self.model = LinearSVC()
         self.matriz_input, self.matriz_output = self.create_word_indices()
@@ -65,10 +65,9 @@ class Classifier():
             word_indices.append(value)
         return label, word_indices
 
-    def classify(self, start=None, end=None):
-        self.get_model()
+    def classify(self, start=3000, end=-1):
+        self.train()
         lista_emails = self.p.load_emails("data/training", start, end)
-        scores = []
 
         self.matriz_input_teste = []
         self.matriz_output_teste = []
@@ -84,22 +83,17 @@ class Classifier():
         true_output = np.asmatrix(self.matriz_output_teste)
         print("Score %f" % f1_score(output, true_output, pos_label='1'))
         print("Confusion matrix")
-        print(confusion_matrix(output, true_output))
-        #self.model.predict()
-
-
-
-
-
-
-
-
-
-
-
-
-            # if predicted_label[0] != label:
-            #
-            #     print("Label original:", label)
-            #     print("Predict label:", predicted_label)
-            #     print("\n------------------------\n")
+        cm = confusion_matrix(output, true_output)
+        print(cm)
+        import pylab as plt
+        labels = ["SPAM", "HAM"]
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        cax = ax.matshow(cm)
+        plt.title('Confusion matrix of the classifier')
+        fig.colorbar(cax)
+        ax.set_xticklabels([''] + labels)
+        ax.set_yticklabels([''] + labels)
+        plt.xlabel('Predicted')
+        plt.ylabel('True')
+        plt.show()

@@ -27,7 +27,7 @@ class ProcessEmail():
         with open("data.json", "w") as f:
             json.dump(self.word_list, f)
 
-    def load_emails(self, email_dir=None, begin=0, end=4200):
+    def load_emails(self, email_dir=None, begin=0, end=3000):
         """
         Start the preprocess of the emails.
         :return: 
