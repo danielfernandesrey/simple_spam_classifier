@@ -8,10 +8,12 @@ import numpy as np
 
 class Classifier():
 
-    def __init__(self):
+    def __init__(self, start_train=0, end_train=3000):
+
         self.email_labels = "data/SPAMTrain.label"
-        self.p = ProcessEmail()
-        self.lista_emails = self.p.load_emails("data/training")
+        self.p = ProcessEmail(start_train=start_train, end_train=end_train)
+        self.p.get_train_test_set()
+        self.lista_emails = self.p.train_set
         self.word_list = {}
         self.load_word_list()
         self.load_labels()
@@ -29,71 +31,68 @@ class Classifier():
         with open(self.email_labels, 'r') as f:
             file_name_label = f.read().split()
 
-            self.labels = list(zip((*[iter(reversed(file_name_label))]*2)))
+            self.labels = list(zip(*[iter(reversed(file_name_label))]*2))
             self.labels = dict(self.labels)
 
     def train(self):
 
-        self.model = LinearSVC()
-        self.matriz_input, self.matriz_output = self.create_word_indices()
-        self.model.fit(self.matriz_input, self.matriz_output)
+        self.model = LinearSVC(max_iter=10000)
+        self.matrix_input, self.matrix_output = self.get_matrix_input_output()
+        self.model.fit(self.matrix_input, self.matrix_output)
 
-    def create_word_indices(self):
+    def get_matrix_input_output(self):
 
-        import numpy
-
-        matriz_input = []
-        matriz_output = []
+        matrix_input = []
+        matrix_output = []
 
         for email, email_file_name in self.lista_emails:
 
-            label, word_indices = self._create_word_indices(email, email_file_name)
+            label, word_indices = self._get_input_array(email, email_file_name)
+            matrix_input.append(word_indices)
+            matrix_output.append(label)
 
-            matriz_input.append(word_indices)
-            matriz_output.append(label)
+        return (np.asmatrix(matrix_input), np.asarray(matrix_output))
 
-        return (numpy.asmatrix(matriz_input), numpy.asarray(matriz_output))
-
-    def _create_word_indices(self, email, email_file_name):
+    def _get_input_array(self, email, email_file_name):
         label = self.labels[email_file_name]
-        word_indices = []
+        input_array = []
         for word in self.word_list:
             value = 0
             if word in email.split():
                 value = 1
 
-            word_indices.append(value)
-        return label, word_indices
+            input_array.append(value)
+        return label, input_array
 
-    def classify(self, start=3000, end=-1):
-        self.train()
-        lista_emails = self.p.load_emails("data/training", start, end)
+    def classify(self):
 
-        self.matriz_input_teste = []
-        self.matriz_output_teste = []
+        lista_emails = self.p.test_set
+
+        self.matrix_input_teste = []
+        self.matrix_output_teste = []
         for tupla in lista_emails:
 
             email = tupla[0]
             email_file_name = tupla[1]
-            label, word_indices = self._create_word_indices(email, email_file_name)
-            self.matriz_input_teste.append(word_indices)
-            self.matriz_output_teste.append([label])
+            label, word_indices = self._get_input_array(email, email_file_name)
+            self.matrix_input_teste.append(word_indices)
+            self.matrix_output_teste.append([label])
 
-        output = self.model.predict(np.asmatrix(self.matriz_input_teste))
-        true_output = np.asmatrix(self.matriz_output_teste)
-        print("Score %f" % f1_score(output, true_output, pos_label='1'))
+        output = self.model.predict(np.asmatrix(self.matrix_input_teste))
+        true_output = np.asmatrix(self.matrix_output_teste)
+        print("Accuracy %f" % f1_score(output, true_output, pos_label='1'))
         print("Confusion matrix")
         cm = confusion_matrix(output, true_output)
         print(cm)
-        import pylab as plt
-        labels = ["SPAM", "HAM"]
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        cax = ax.matshow(cm)
-        plt.title('Confusion matrix of the classifier')
-        fig.colorbar(cax)
-        ax.set_xticklabels([''] + labels)
-        ax.set_yticklabels([''] + labels)
-        plt.xlabel('Predicted')
-        plt.ylabel('True')
-        plt.show()
+        # import pylab as plt
+        # labels = ["SPAM", "HAM"]
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # cax = ax.matshow(cm)
+        # plt.title('Confusion matrix of the classifier')
+        # fig.colorbar(cax)
+        # ax.set_xticklabels([''] + labels)
+        # ax.set_yticklabels([''] + labels)
+        # plt.xlabel('Predicted')
+        # plt.ylabel('True')
+        # plt.show()
