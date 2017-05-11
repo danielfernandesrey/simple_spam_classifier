@@ -5,15 +5,9 @@ import os
 import json
 from stemming.porter2 import stem
 
+
 class ProcessEmail():
-
     word_list = {}
-
-    def __init__(self, email_content=None, start_train=0, end_train=3000):
-        self.start_train = start_train
-        self.end_train = end_train
-        self.email_dir = "data/training"
-        self.load_emails(self.email_dir)
 
     def construct_word_list(self):
         """
@@ -30,31 +24,28 @@ class ProcessEmail():
         with open("word_list.json", "w") as f:
             json.dump(self.word_list, f)
 
-    def load_emails(self, email_dir=None, begin=0, end=3000):
+    def load_training_emails(self):
         """
         Start the preprocess of the emails.
         :return: 
         """
-        self.lista_emails_geral = sorted(os.listdir(email_dir))
+        email_dir = "data/training"
+        training_emails = sorted(os.listdir(email_dir))
+        return self._preprocess_set(training_emails, email_dir)
 
-    def preprocess_set(self, emails):
+    def _preprocess_set(self, emails, email_dir):
 
-        for email in emails:
+        dicionario_emails = {}
 
-            email_abspath = os.path.join(self.email_dir, email)
+        for email_file_name in emails:
+            email_abspath = os.path.join(email_dir, email_file_name)
             with open(email_abspath, encoding='latin-1') as f:
                 conteudo = f.read()
-                yield (self.preprocess_email(conteudo), email)
+                dicionario_emails[email_file_name] = self._preprocess_email(conteudo)
+        return dicionario_emails
+                # yield (self.preprocess_email(conteudo), email)
 
-    def get_train_test_set(self):
-
-        self.train_set = self.lista_emails_geral[self.start_train:self.end_train]
-        self.train_set = self.preprocess_set(self.train_set)
-
-        self.test_set = self.lista_emails_geral[self.end_train:]
-        self.test_set = self.preprocess_set(self.test_set)
-
-    def preprocess_email(self, email_content):
+    def _preprocess_email(self, email_content):
         """
         The following actions are performed to preprocess the emails:
             - Apply lowercase;
@@ -93,5 +84,29 @@ class ProcessEmail():
             qtd = qtd + 1
             self.word_list[word] = qtd
 
-#p = ProcessEmail()
-#p.load_emails()
+    def load_test_set(self):
+
+        dir_test = "data/testing"
+        test_emails = os.listdir(dir_test)
+        return self._preprocess_set(test_emails, dir_test)
+
+    # p = ProcessEmail()
+    # p.load_emails()
+
+    def load_labels(self):
+
+        email_labels = "data/SPAMTrain.label"
+        with open(email_labels, 'r') as f:
+            file_name_label = f.read().split()
+
+            labels = list(zip(*[iter(reversed(file_name_label))] * 2))
+            labels = dict(labels)
+            return labels
+
+    def load_word_list(self):
+        try:
+            with open('word_list.json', 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            self.construct_word_list()
+            return self.word_list

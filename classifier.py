@@ -5,56 +5,72 @@ from sklearn.svm import LinearSVC
 from process_email import ProcessEmail
 from sklearn.metrics import f1_score, confusion_matrix
 import numpy as np
+from sklearn.externals import joblib
 
 class Classifier():
 
-    def __init__(self, start_train=0, end_train=3000):
+    testing_emails = None
+    svm_model = None
+    start_training = None
+    end_training = None
 
-        self.email_labels = "data/SPAMTrain.label"
-        self.p = ProcessEmail(start_train=start_train, end_train=end_train)
-        self.p.get_train_test_set()
-        self.lista_emails = self.p.train_set
-        self.word_list = {}
-        self.load_word_list()
-        self.load_labels()
+    def __init__(self, start_training=0, end_training=3000):
+        self.start_training = start_training
+        self.end_training = end_training
 
-    def load_word_list(self):
+        self.p = ProcessEmail()
+        self.word_list = self.p.load_word_list()
+
+        self.load_input_outout_matrix()
+
+        self.labels = self.p.load_labels()
+
+        self.X_training = self.matrix_training_input[self.start_training:self.end_training]
+        self.y_training = self.matrix_training_output[self.start_training:self.end_training]
+        self.X_test = self.matrix_training_input[self.end_training:]
+        self.y_test = self.matrix_training_output[self.end_training:]
+
+
+    def load_input_outout_matrix(self):
+        """
+        Load the input and output matrix.
+        Since the training matrix takes to long to generate, this method tries to load a alread trained matrix from
+        a file.
+        """
+
         try:
-            with open('word_list.json', 'r') as f:
-                self.word_list = json.load(f)
+
+            self.matrix_training_input = joblib.load("matrix_input")
+            self.matrix_training_output = joblib.load("matrix_output")
+
         except FileNotFoundError:
-            self.p.construct_word_list()
-            self.word_list = self.p.word_list
 
-    def load_labels(self):
+            training_emails = self.p.load_training_emails()
 
-        with open(self.email_labels, 'r') as f:
-            file_name_label = f.read().split()
+            matrix_input = []
+            matrix_output = []
 
-            self.labels = list(zip(*[iter(reversed(file_name_label))]*2))
-            self.labels = dict(self.labels)
+            for email_file_name, email in training_emails.items():
 
-    def train(self):
+                label, word_indices = self._get_input_array(email, email_file_name)
+                matrix_input.append(word_indices)
+                matrix_output.append(label)
 
-        self.model = LinearSVC(max_iter=10000)
-        self.matrix_input, self.matrix_output = self.get_matrix_input_output()
-        self.model.fit(self.matrix_input, self.matrix_output)
-
-    def get_matrix_input_output(self):
-
-        matrix_input = []
-        matrix_output = []
-
-        for email, email_file_name in self.lista_emails:
-
-            label, word_indices = self._get_input_array(email, email_file_name)
-            matrix_input.append(word_indices)
-            matrix_output.append(label)
-
-        return (np.asmatrix(matrix_input), np.asarray(matrix_output))
+            self.matrix_training_input = np.asmatrix(matrix_input)
+            self.matrix_training_output = np.asarray(matrix_output)
 
     def _get_input_array(self, email, email_file_name):
-        label = self.labels[email_file_name]
+        """
+        Create a 0 and 1 array. The array is created based on the words that appear both in the word list and the email
+        content.
+        :param email: Content of the email.
+        :param email_file_name: Email file name.
+        :return: 1 - For ham and 0 - For spam and the array of 0's and 1's
+        """
+        try:
+            label = self.labels[email_file_name]
+        except Exception:
+            label = email_file_name
         input_array = []
         for word in self.word_list:
             value = 0
@@ -64,35 +80,36 @@ class Classifier():
             input_array.append(value)
         return label, input_array
 
-    def classify(self):
+    def run_svm(self):
+        """
+        Run the svm algorithm and output i'ts accuracy and the confusion matrix.
+        """
 
-        lista_emails = self.p.test_set
+        self.svm_model = LinearSVC(max_iter=20000)
+        self.svm_model.fit(self.X_training, self.y_training)
 
-        self.matrix_input_teste = []
-        self.matrix_output_teste = []
-        for tupla in lista_emails:
+        output_predictions = self.svm_model.predict(self.X_test)
+        ground_truth_output = self.y_test
 
-            email = tupla[0]
-            email_file_name = tupla[1]
-            label, word_indices = self._get_input_array(email, email_file_name)
-            self.matrix_input_teste.append(word_indices)
-            self.matrix_output_teste.append([label])
-
-        output = self.model.predict(np.asmatrix(self.matrix_input_teste))
-        true_output = np.asmatrix(self.matrix_output_teste)
-        print("Accuracy %f" % f1_score(output, true_output, pos_label='1'))
+        score = f1_score(output_predictions, ground_truth_output, pos_label='1')
+        print("Accuracy SVM %.2f%%" % (score*100))
         print("Confusion matrix")
-        cm = confusion_matrix(output, true_output)
+        cm = confusion_matrix(output_predictions, ground_truth_output)
         print(cm)
-        # import pylab as plt
-        # labels = ["SPAM", "HAM"]
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # cax = ax.matshow(cm)
-        # plt.title('Confusion matrix of the classifier')
-        # fig.colorbar(cax)
-        # ax.set_xticklabels([''] + labels)
-        # ax.set_yticklabels([''] + labels)
-        # plt.xlabel('Predicted')
-        # plt.ylabel('True')
-        # plt.show()
+
+    def run_neural_net(self):
+        """
+        Build a Neural Net using Keras, classify the emails with it and ouput i'ts accuracy.
+        """
+
+        from keras.models import Sequential
+        from keras.layers import Dense
+        self.neural_net = Sequential()
+        self.neural_net.add(Dense(12, input_dim=self.X_training.shape[1], activation='relu'))
+        self.neural_net.add(Dense(8, activation='relu'))
+        self.neural_net.add(Dense(1, activation='sigmoid'))
+
+        self.neural_net.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        self.neural_net.fit(self.X_training, self.y_training, epochs=300, batch_size=100, verbose=0)
+        scores = self.neural_net.evaluate(self.X_training, self.y_training)
+        print("\nAccuracy Neural Net: %.2f%%" % (scores[1]*100))
