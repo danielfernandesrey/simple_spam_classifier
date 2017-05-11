@@ -8,7 +8,7 @@ One is SVM and the other is a Neural Network. The Neural Net was created using K
 To run the classifier, just follow these steps:<br />
     - classifier = Classifier()<br />
     - classifier.run_svm() - To run the svm classifier<br />
-    - classifier.classify() - To run the neural net classifier<br />
+    - classifier.run_neural_net() - To run the neural net classifier<br />
 
 The algorithms trains the classifier with 3000 e-mails and, then, classify the rest of the emails of the dataset.
 If a start and end values are feed to the classify method, then the algorithm classifies only the e-mails
